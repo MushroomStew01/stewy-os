@@ -58,6 +58,32 @@
         <div><span>Formats</span><strong data-metric="format_count">—</strong></div>
       </div>
     </article>
+
+    <article class="card home-card" data-card="home_assistant">
+      <div class="card-head"><span class="icon">🏠</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">HOME</p>
+      <h2 data-field="headline">Home Assistant</h2>
+      <div class="metrics four">
+        <div><span>People Home</span><strong data-metric="people_home">—</strong></div>
+        <div><span>Temperatures</span><strong data-metric="temperature_count">—</strong></div>
+        <div><span>Selected</span><strong data-metric="selected_count">—</strong></div>
+        <div><span>Entities</span><strong data-metric="entity_count">—</strong></div>
+      </div>
+      <div class="home-detail-grid">
+        <section class="entity-group">
+          <p class="eyebrow">PRESENCE</p>
+          <div class="entity-list" data-home-presence><span class="muted">No people discovered.</span></div>
+        </section>
+        <section class="entity-group">
+          <p class="eyebrow">TEMPERATURES</p>
+          <div class="entity-list" data-home-temperatures><span class="muted">No temperature sensors selected.</span></div>
+        </section>
+        <section class="entity-group">
+          <p class="eyebrow">SELECTED ENTITIES</p>
+          <div class="entity-list" data-home-selected><span class="muted">Add entities in .env when useful.</span></div>
+        </section>
+      </div>
+    </article>
   </section>
 
   <section class="activity card wide">

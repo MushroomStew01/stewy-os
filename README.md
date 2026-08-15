@@ -3,21 +3,20 @@
 Stewy OS is a self-hosted personal command center that sits above independent
 services instead of merging their business logic and databases into one monolith.
 
-## v0.2
+## v0.3
 
-v0.2 adds the first cross-service activity layer and connects the existing movie
-monitor.
+v0.3 connects Home Assistant directly to the command center while keeping the
+integration read-only.
 
 - Lexus Personal Hub status via `/healthz` and `/api/status`.
 - ChatGPT Calorie Bridge daily summary via `/health` and `/api/summary`.
 - Movie Ticket Monitor status through its public `status.json` feed.
+- Home Assistant service health, presence, room temperatures, and explicitly selected entities.
+- Automatic `person.*` presence discovery and sensible temperature-sensor discovery when entity lists are blank.
+- Presence-change activity events such as arrivals and departures.
 - Raspberry Pi / HomeLab CPU, RAM, disk, temperature, load, and uptime.
-- Persistent Recent Activity events for new meals, movie inventory changes,
-  integration health transitions, and Lexus ready-state transitions.
-- SQLite-backed integration cursors so a restart does not replay old activity.
-- Docker named-volume persistence so fresh installs do not require manual UID/GID
-  fixes for `stewy.db`.
-- Responsive PWA dashboard on port `8020` by default.
+- Persistent Recent Activity with SQLite-backed integration cursors.
+- Docker named-volume persistence and responsive PWA dashboard on port `8020`.
 
 ## Architecture
 
@@ -27,13 +26,14 @@ monitor.
                          |  FastAPI + PWA UI  |
                          +----------+---------+
                                     |
-            +-----------------------+-----------------------+
-            |                       |                       |
-            v                       v                       v
-     Lexus Personal Hub       Calorie Bridge          Movie Monitor
-       /api/status             /api/summary            status.json
-            |                                              |
-      Home Assistant                                  GitHub Actions
+        +----------------+----------------+----------------+----------------+
+        |                |                |                |
+        v                v                v                v
+   Lexus Hub        Calorie Bridge    Movie Monitor   Home Assistant
+  /api/status        /api/summary      status.json      /api/states
+        |                                 |                |
+        v                                 v                v
+ Home Assistant                      GitHub Actions   Home / sensors
                                     |
                                     v
                               HomeLab / Pi
@@ -98,6 +98,35 @@ MOVIE_STALE_HOURS=36
 A feed older than `MOVIE_STALE_HOURS` is shown as stale so Stewy OS can also
 surface a stopped movie-monitor workflow.
 
+### Home Assistant
+
+Stewy OS uses the same Home Assistant REST pattern as Lexus Hub: a local base URL,
+a long-lived access token, Bearer authentication, and `GET /api/states`. The
+integration is read-only.
+
+When Home Assistant is exposed on port `8123` of the same Raspberry Pi host:
+
+```env
+HA_BASE_URL=http://host.docker.internal:8123
+HA_TOKEN=replace-with-your-long-lived-home-assistant-token
+HA_TIMEOUT_SECONDS=5
+```
+
+Optional comma-separated entity lists let you keep the dashboard focused:
+
+```env
+HA_PRESENCE_ENTITIES=person.andy
+HA_TEMPERATURE_ENTITIES=sensor.living_room_temperature,sensor.bedroom_temperature
+HA_SELECTED_ENTITIES=binary_sensor.front_door,sensor.indoor_humidity
+HA_MAX_TEMPERATURE_SENSORS=6
+```
+
+If `HA_PRESENCE_ENTITIES` is blank, Stewy OS discovers `person.*` entities. If
+`HA_TEMPERATURE_ENTITIES` is blank, it discovers suitable Home Assistant sensors
+with `device_class=temperature` and shows up to `HA_MAX_TEMPERATURE_SENSORS`.
+Configured entity IDs that disappear are surfaced as a degraded Home card without
+marking the Home Assistant API itself offline.
+
 ### Dashboard protection
 
 For LAN/Tailscale testing, `STEWY_PASSWORD` may remain blank. Before exposing the
@@ -124,11 +153,6 @@ pytest -q
 ```
 
 ## Roadmap
-
-### v0.3 — Home Assistant
-
-- Selected rooms, temperatures, presence, and device status.
-- Home Assistant service health and useful controls.
 
 ### v0.4 — Developer / HomeLab
 

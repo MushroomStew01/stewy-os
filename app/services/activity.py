@@ -10,7 +10,7 @@ from ..database import session_scope
 from ..integrations.base import IntegrationSnapshot
 from ..models import ActivityEvent, IntegrationState
 
-_TRACKED_SOURCES = {"lexus", "calories", "movies", "system"}
+_TRACKED_SOURCES = {"lexus", "calories", "movies", "home_assistant", "system"}
 
 
 def _list_metric(metrics: dict[str, Any], key: str) -> list[str]:
@@ -44,6 +44,11 @@ def _snapshot_state(snapshot: IntegrationSnapshot) -> dict[str, Any]:
         }
     elif snapshot.name == "lexus":
         common["metrics"] = {"ready": metrics.get("ready")}
+    elif snapshot.name == "home_assistant":
+        presence = metrics.get("presence")
+        common["metrics"] = {
+            "presence": presence if isinstance(presence, list) else [],
+        }
     else:
         common["metrics"] = {}
     return common
@@ -60,6 +65,7 @@ def _health_events(
         "lexus": "Lexus",
         "calories": "Nutrition",
         "movies": "Movie Monitor",
+        "home_assistant": "Home Assistant",
         "system": "HomeLab",
     }
     label = labels.get(source, source.title())
@@ -139,6 +145,50 @@ def _movie_events(previous: dict[str, Any], current: dict[str, Any]) -> list[tup
     return [("movie_change", heading, " • ".join(parts))]
 
 
+def _presence_map(value: Any) -> dict[str, tuple[str, str]]:
+    if not isinstance(value, list):
+        return {}
+    result: dict[str, tuple[str, str]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        entity_id = str(item.get("entity_id") or "").strip()
+        if not entity_id:
+            continue
+        result[entity_id] = (
+            str(item.get("name") or entity_id),
+            str(item.get("state") or "unknown"),
+        )
+    return result
+
+
+def _home_assistant_events(
+    previous: dict[str, Any], current: dict[str, Any]
+) -> list[tuple[str, str, str]]:
+    old_presence = _presence_map(previous.get("metrics", {}).get("presence"))
+    new_presence = _presence_map(current.get("metrics", {}).get("presence"))
+    events: list[tuple[str, str, str]] = []
+    for entity_id in sorted(set(old_presence) & set(new_presence)):
+        old_name, old_state = old_presence[entity_id]
+        new_name, new_state = new_presence[entity_id]
+        if old_state == new_state:
+            continue
+        name = new_name or old_name
+        if old_state != "home" and new_state == "home":
+            events.append(("presence_arrived", f"{name} arrived home", "Presence changed to home."))
+        elif old_state == "home" and new_state != "home":
+            events.append(("presence_left", f"{name} left home", f"Presence changed to {new_state}."))
+        else:
+            events.append(
+                (
+                    "presence_changed",
+                    f"{name} presence changed",
+                    f"Presence changed from {old_state} to {new_state}.",
+                )
+            )
+    return events
+
+
 def _lexus_events(previous: dict[str, Any], current: dict[str, Any]) -> list[tuple[str, str, str]]:
     old_ready = previous.get("metrics", {}).get("ready")
     new_ready = current.get("metrics", {}).get("ready")
@@ -161,6 +211,8 @@ def _events_for_transition(
         events.extend(_movie_events(previous, current))
     elif source == "lexus":
         events.extend(_lexus_events(previous, current))
+    elif source == "home_assistant":
+        events.extend(_home_assistant_events(previous, current))
     return events
 
 

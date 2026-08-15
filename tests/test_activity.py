@@ -47,3 +47,26 @@ def test_movie_transition_creates_new_inventory_event() -> None:
     assert events[0][1] == "Dune: Part 3 tickets detected"
     assert "New showtimes: 7:00 pm" in events[0][2]
     assert "Cineplex Cinemas Kitchener and VIP" in events[0][2]
+
+
+def test_home_assistant_presence_transition_creates_arrival_event() -> None:
+    previous = {
+        "healthy": True,
+        "status": "online",
+        "metrics": {
+            "presence": [
+                {"entity_id": "person.andy", "name": "Andy", "state": "not_home"}
+            ]
+        },
+    }
+    current = {
+        "healthy": True,
+        "status": "online",
+        "metrics": {
+            "presence": [
+                {"entity_id": "person.andy", "name": "Andy", "state": "home"}
+            ]
+        },
+    }
+    events = _events_for_transition("home_assistant", previous, current)
+    assert events == [("presence_arrived", "Andy arrived home", "Presence changed to home.")]
