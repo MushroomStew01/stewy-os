@@ -177,7 +177,9 @@ def _home_assistant_events(
         if old_state != "home" and new_state == "home":
             events.append(("presence_arrived", f"{name} arrived home", "Presence changed to home."))
         elif old_state == "home" and new_state != "home":
-            events.append(("presence_left", f"{name} left home", f"Presence changed to {new_state}."))
+            events.append(
+                ("presence_left", f"{name} left home", f"Presence changed to {new_state}.")
+            )
         else:
             events.append(
                 (

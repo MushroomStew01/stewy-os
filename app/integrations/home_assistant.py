@@ -223,7 +223,8 @@ class HomeAssistantIntegration(Integration):
         status = "degraded" if missing else "online"
         detail = "Home Assistant"
         if missing:
-            detail = f"Home Assistant • {len(missing)} configured entit{'y' if len(missing) == 1 else 'ies'} missing"
+            noun = "entity" if len(missing) == 1 else "entities"
+            detail = f"Home Assistant • {len(missing)} configured {noun} missing"
 
         return IntegrationSnapshot(
             name=self.name,
