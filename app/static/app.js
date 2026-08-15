@@ -47,7 +47,7 @@ function renderCard(name, data) {
     setMetric(card, "showtime_count", m.showtime_count);
     setMetric(card, "format_count", m.format_count);
   } else if (name === "home_assistant") {
-    const peopleValue = m.people_total ? `${m.people_home || 0}/${m.people_total}` : m.people_home;
+    const peopleValue = m.people_total ? `${m.people_home || 0}/${m.people_total}` : "NOT SET";
     setMetric(card, "people_home", peopleValue);
     setMetric(card, "temperature_count", m.temperature_count);
     setMetric(card, "selected_count", m.selected_count);
@@ -67,7 +67,12 @@ function escapeHtml(value) {
 function renderEntityList(root, items, kind) {
   if (!root) return;
   if (!Array.isArray(items) || items.length === 0) {
-    root.innerHTML = '<span class="muted">None configured or discovered.</span>';
+    const empty = {
+      presence: "No usable presence detected.",
+      temperature: "No room temperature sensors.",
+      state: "No selected entities."
+    }[kind] || "None configured or discovered.";
+    root.innerHTML = `<span class="muted">${escapeHtml(empty)}</span>`;
     return;
   }
   root.innerHTML = items.map(item => {

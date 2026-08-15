@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from app.integrations.calories import CalorieIntegration
+from app.integrations.home_assistant import HomeAssistantIntegration
 from app.integrations.lexus import LexusIntegration
 from app.integrations.movies import MovieIntegration
 
@@ -146,8 +147,6 @@ async def test_home_assistant_adapter_maps_presence_temperatures_and_selected() 
             ],
         )
 
-    from app.integrations.home_assistant import HomeAssistantIntegration
-
     integration = HomeAssistantIntegration(
         "http://ha.test",
         "ha-secret",
@@ -167,11 +166,120 @@ async def test_home_assistant_adapter_maps_presence_temperatures_and_selected() 
 
 
 @pytest.mark.asyncio
+async def test_home_assistant_auto_presence_ignores_unknown_and_vehicle_trackers() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "entity_id": "person.lexushome",
+                    "state": "unknown",
+                    "attributes": {"friendly_name": "LexusHome"},
+                },
+                {
+                    "entity_id": "device_tracker.andys_iphone",
+                    "state": "unknown",
+                    "attributes": {"friendly_name": "Andy’s iPhone"},
+                },
+                {
+                    "entity_id": "device_tracker.2023_lexus_current_location",
+                    "state": "not_home",
+                    "attributes": {"friendly_name": "2023 Lexus Current Location"},
+                },
+                {
+                    "entity_id": "device_tracker.2023_lexus_last_parked_location",
+                    "state": "not_home",
+                    "attributes": {"friendly_name": "2023 Lexus Last Parked Location"},
+                },
+            ],
+        )
+
+    integration = HomeAssistantIntegration(
+        "http://ha.test",
+        "ha-secret",
+        2,
+        transport=httpx.MockTransport(handler),
+    )
+    snapshot = await integration.snapshot()
+    assert snapshot.metrics["people_home"] == 0
+    assert snapshot.metrics["people_total"] == 0
+    assert snapshot.metrics["presence"] == []
+
+
+@pytest.mark.asyncio
+async def test_home_assistant_auto_presence_falls_back_to_valid_device_tracker() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "entity_id": "person.lexushome",
+                    "state": "unknown",
+                    "attributes": {"friendly_name": "LexusHome"},
+                },
+                {
+                    "entity_id": "device_tracker.andys_iphone",
+                    "state": "home",
+                    "attributes": {"friendly_name": "Andy’s iPhone"},
+                },
+                {
+                    "entity_id": "device_tracker.2023_lexus_current_location",
+                    "state": "not_home",
+                    "attributes": {"friendly_name": "2023 Lexus Current Location"},
+                },
+            ],
+        )
+
+    integration = HomeAssistantIntegration(
+        "http://ha.test",
+        "ha-secret",
+        2,
+        transport=httpx.MockTransport(handler),
+    )
+    snapshot = await integration.snapshot()
+    assert snapshot.metrics["people_home"] == 1
+    assert snapshot.metrics["people_total"] == 1
+    assert snapshot.metrics["presence"] == [
+        {
+            "entity_id": "device_tracker.andys_iphone",
+            "name": "Andy’s iPhone",
+            "state": "home",
+            "unit": "",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_home_assistant_explicit_unknown_presence_is_hidden() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "entity_id": "device_tracker.andys_iphone",
+                    "state": "unknown",
+                    "attributes": {"friendly_name": "Andy’s iPhone"},
+                }
+            ],
+        )
+
+    integration = HomeAssistantIntegration(
+        "http://ha.test",
+        "ha-secret",
+        2,
+        presence_entities="device_tracker.andys_iphone",
+        transport=httpx.MockTransport(handler),
+    )
+    snapshot = await integration.snapshot()
+    assert snapshot.status == "online"
+    assert snapshot.metrics["people_total"] == 0
+    assert snapshot.metrics["presence"] == []
+
+
+@pytest.mark.asyncio
 async def test_home_assistant_adapter_marks_missing_configured_entity_degraded() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=[])
-
-    from app.integrations.home_assistant import HomeAssistantIntegration
 
     integration = HomeAssistantIntegration(
         "http://ha.test",
