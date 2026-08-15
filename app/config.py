@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     calorie_api_key: str = ""
     calorie_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
 
+    movie_status_url: str = (
+        "https://raw.githubusercontent.com/MushroomStew01/"
+        "movie-ticket-discord-monitor/main/status.json"
+    )
+    movie_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    movie_stale_hours: int = Field(default=36, ge=1, le=168)
+
 
 @lru_cache
 def get_settings() -> Settings:

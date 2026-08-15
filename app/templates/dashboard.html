@@ -47,11 +47,16 @@
       </div>
     </article>
 
-    <article class="card planned">
-      <div class="card-head"><span class="icon">🎬</span><span class="status neutral">PLANNED</span></div>
+    <article class="card" data-card="movies">
+      <div class="card-head"><span class="icon">🎬</span><span class="status" data-field="status">Loading</span></div>
       <p class="eyebrow">MOVIES</p>
-      <h2>Movie Monitor</h2>
-      <p class="muted">The existing GitHub Actions monitor will join Stewy OS through a small status feed in v0.2.</p>
+      <h2 data-field="headline">Dune: Part 3</h2>
+      <div class="metrics four">
+        <div><span>Tickets</span><strong data-metric="ticket_available">—</strong></div>
+        <div><span>Theatres</span><strong data-metric="theatres_found">—</strong></div>
+        <div><span>Showtimes</span><strong data-metric="showtime_count">—</strong></div>
+        <div><span>Formats</span><strong data-metric="format_count">—</strong></div>
+      </div>
     </article>
   </section>
 

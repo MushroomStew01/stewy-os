@@ -1,23 +1,23 @@
 # Stewy OS
 
-Stewy OS is a self-hosted personal command center that sits above Andy's existing services instead of merging them into one monolith.
+Stewy OS is a self-hosted personal command center that sits above independent
+services instead of merging their business logic and databases into one monolith.
 
-## v0.1 foundation
+## v0.2
 
-The first milestone includes:
+v0.2 adds the first cross-service activity layer and connects the existing movie
+monitor.
 
-- FastAPI web application and JSON dashboard API.
-- Responsive dark dashboard and installable PWA shell.
-- Live Raspberry Pi / host metrics for CPU, RAM, disk, temperature, load, and uptime.
-- Lexus Personal Hub adapter using its existing `/healthz` and `/api/status` endpoints.
-- ChatGPT Calorie Bridge adapter using `/health` and API-key-protected `/api/summary`.
-- Concurrent integration polling with a short cache to avoid hammering upstream services.
-- SQLite-backed activity-event foundation for the unified timeline.
-- Optional HTTP Basic protection for the dashboard and APIs.
-- Docker / Compose deployment and GitHub Actions CI.
-- Adapter and application tests.
-
-The movie monitor remains independent and will join through a compact machine-readable status feed in v0.2.
+- Lexus Personal Hub status via `/healthz` and `/api/status`.
+- ChatGPT Calorie Bridge daily summary via `/health` and `/api/summary`.
+- Movie Ticket Monitor status through its public `status.json` feed.
+- Raspberry Pi / HomeLab CPU, RAM, disk, temperature, load, and uptime.
+- Persistent Recent Activity events for new meals, movie inventory changes,
+  integration health transitions, and Lexus ready-state transitions.
+- SQLite-backed integration cursors so a restart does not replay old activity.
+- Docker named-volume persistence so fresh installs do not require manual UID/GID
+  fixes for `stewy.db`.
+- Responsive PWA dashboard on port `8020` by default.
 
 ## Architecture
 
@@ -27,61 +27,55 @@ The movie monitor remains independent and will join through a compact machine-re
                          |  FastAPI + PWA UI  |
                          +----------+---------+
                                     |
-                 +------------------+------------------+
-                 |                  |                  |
-                 v                  v                  v
-          Lexus Personal Hub   Calorie Bridge      HomeLab Host
-             /api/status        /api/summary       psutil / Linux
-                 |
-           Home Assistant
+            +-----------------------+-----------------------+
+            |                       |                       |
+            v                       v                       v
+     Lexus Personal Hub       Calorie Bridge          Movie Monitor
+       /api/status             /api/summary            status.json
+            |                                              |
+      Home Assistant                                  GitHub Actions
+                                    |
+                                    v
+                              HomeLab / Pi
 ```
 
-Stewy OS owns presentation, integration health, caching, and eventually unified activity/notifications. Each source service continues to own its own business logic and data.
-
-## Quick start
-
-```bash
-cp .env.example .env
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-uvicorn app.main:app --reload
-```
-
-On Windows, activate the virtual environment with `.venv\\Scripts\\activate`.
-
-Open `http://127.0.0.1:8000`.
+Stewy OS owns presentation, integration health, short-lived caching, and the
+normalized activity timeline. Source services continue to own their data and
+domain logic.
 
 ## Raspberry Pi / Docker
 
 ```bash
 cp .env.example .env
+nano .env
 docker compose up -d --build
 ```
 
-If Lexus Personal Hub runs directly on the same Raspberry Pi while Stewy OS runs in Docker, point the integration at the host bridge rather than `127.0.0.1` inside the container:
+Stewy OS is exposed on:
 
-```env
-LEXUS_BASE_URL=http://host.docker.internal:YOUR_LEXUS_PORT
+```text
+http://<PI-IP>:8020
 ```
 
-The Compose file adds the Linux `host-gateway` mapping needed for that hostname.
+The Compose deployment uses a Docker named volume named `stewy_data`. This lets
+the non-root application user write SQLite safely without a host-side `chown`.
+
+If you are upgrading from v0.1, the old `./data/stewy.db` bind-mounted database
+is no longer used after the first v0.2 Compose deployment. v0.1 only stored the
+empty/new activity foundation, so the v0.2 named volume intentionally starts the
+activity cursor cleanly.
 
 ## Configuration
 
 ### Lexus Personal Hub
 
+When Lexus Hub runs directly on the same Raspberry Pi while Stewy OS runs in
+Docker:
+
 ```env
-LEXUS_BASE_URL=http://127.0.0.1:8010
+LEXUS_BASE_URL=http://host.docker.internal:8000
 LEXUS_TIMEOUT_SECONDS=5
 ```
-
-Stewy OS checks:
-
-- `GET /healthz`
-- `GET /api/status`
-
-If the URL is blank or the service is unavailable, Stewy OS stays online and shows that card as unconfigured/unavailable.
 
 ### Calorie Bridge
 
@@ -91,57 +85,50 @@ CALORIE_API_KEY=replace-with-your-existing-app-api-key
 CALORIE_TIMEOUT_SECONDS=5
 ```
 
-Stewy OS checks:
+### Movie Monitor
 
-- `GET /health`
-- `GET /api/summary` with `X-API-Key`
+The public movie-monitor status feed is configured by default:
+
+```env
+MOVIE_STATUS_URL=https://raw.githubusercontent.com/MushroomStew01/movie-ticket-discord-monitor/main/status.json
+MOVIE_TIMEOUT_SECONDS=5
+MOVIE_STALE_HOURS=36
+```
+
+A feed older than `MOVIE_STALE_HOURS` is shown as stale so Stewy OS can also
+surface a stopped movie-monitor workflow.
 
 ### Dashboard protection
 
-For LAN-only testing you can leave `STEWY_PASSWORD` blank. Before exposing Stewy OS outside the private network, set a strong password:
+For LAN/Tailscale testing, `STEWY_PASSWORD` may remain blank. Before exposing the
+service more broadly, set a strong password:
 
 ```env
 STEWY_USERNAME=andy
 STEWY_PASSWORD=replace-with-a-long-random-secret
 ```
 
-This protects `/`, `/api/dashboard`, and `/api/activity`. `/healthz` intentionally remains unauthenticated for uptime checks.
-
 ## API
 
-- `GET /healthz` — Stewy OS process health.
-- `GET /api/dashboard` — combined current integration snapshot.
-- `GET /api/dashboard?force=true` — bypass the short integration cache.
-- `GET /api/activity` — recent unified activity events.
-
-## Persistence
-
-Stewy OS uses SQLite by default:
-
-```env
-DATABASE_URL=sqlite:///./data/stewy.db
-```
-
-The v0.1 database contains the `activity_events` table. Integration-owned data such as Lexus trips and meal history remains in the source applications.
+- `GET /healthz` — Stewy OS process health and version.
+- `GET /api/dashboard` — combined integration snapshot and recent activity.
+- `GET /api/dashboard?force=true` — bypass integration cache.
+- `GET /api/activity` — persistent normalized activity events.
 
 ## Development
 
 ```bash
+python -m pip install -e ".[dev]"
 ruff check .
 pytest -q
 ```
 
 ## Roadmap
 
-### v0.2 — Activity + movies
-
-- Movie Monitor `status.json` feed.
-- Generate normalized activity events from source-service changes.
-- Better timestamps and source links.
-
 ### v0.3 — Home Assistant
 
-- Rooms, temperatures, presence, selected entities, and service health.
+- Selected rooms, temperatures, presence, and device status.
+- Home Assistant service health and useful controls.
 
 ### v0.4 — Developer / HomeLab
 
@@ -151,11 +138,11 @@ pytest -q
 
 ### v0.5 — Notifications
 
-- One notification service for Lexus, movies, HomeLab, and future integrations.
+- One notification service across Lexus, movies, HomeLab, and future sources.
 - Deduplication, priorities, quiet hours, and Discord delivery.
 
 ### v0.6 — Personal intelligence
 
 - Daily briefing.
 - Cross-service questions and summaries.
-- "Ask Stewy" interface.
+- Ask Stewy interface.
