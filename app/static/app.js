@@ -46,6 +46,15 @@ function renderCard(name, data) {
     setMetric(card, "theatres_found", theatreValue);
     setMetric(card, "showtime_count", m.showtime_count);
     setMetric(card, "format_count", m.format_count);
+  } else if (name === "home_assistant") {
+    const peopleValue = m.people_total ? `${m.people_home || 0}/${m.people_total}` : m.people_home;
+    setMetric(card, "people_home", peopleValue);
+    setMetric(card, "temperature_count", m.temperature_count);
+    setMetric(card, "selected_count", m.selected_count);
+    setMetric(card, "entity_count", m.entity_count);
+    renderEntityList(card.querySelector("[data-home-presence]"), m.presence, "presence");
+    renderEntityList(card.querySelector("[data-home-temperatures]"), m.temperatures, "temperature");
+    renderEntityList(card.querySelector("[data-home-selected]"), m.selected, "state");
   }
 }
 
@@ -53,6 +62,26 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, ch => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
   })[ch]);
+}
+
+function renderEntityList(root, items, kind) {
+  if (!root) return;
+  if (!Array.isArray(items) || items.length === 0) {
+    root.innerHTML = '<span class="muted">None configured or discovered.</span>';
+    return;
+  }
+  root.innerHTML = items.map(item => {
+    let value = item.state ?? "—";
+    if (kind === "presence") {
+      value = item.state === "home" ? "HOME" : item.state === "not_home" ? "AWAY" : String(item.state || "—").toUpperCase();
+    } else if (kind === "temperature") {
+      const suffix = item.unit ? ` ${item.unit}` : "";
+      value = `${fmt(item.value)}${suffix}`;
+    } else if (item.unit) {
+      value = `${item.state ?? "—"} ${item.unit}`;
+    }
+    return `<div class="entity-row"><span>${escapeHtml(item.name || item.entity_id || "Entity")}</span><strong>${escapeHtml(value)}</strong></div>`;
+  }).join("");
 }
 
 function renderActivity(items) {
@@ -65,7 +94,7 @@ function renderActivity(items) {
   root.innerHTML = items.map(item => {
     const when = new Date(item.occurred_at);
     const time = Number.isNaN(when.getTime()) ? "—" : when.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
-    const source = ({movies: "Movies", calories: "Nutrition", lexus: "Lexus", system: "HomeLab"})[item.source] || item.source;
+    const source = ({movies: "Movies", calories: "Nutrition", lexus: "Lexus", home_assistant: "Home", system: "HomeLab"})[item.source] || item.source;
     return `<div class="activity-row"><time>${escapeHtml(time)}</time><span class="source">${escapeHtml(source)}</span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail || "")}</p></div></div>`;
   }).join("");
 }

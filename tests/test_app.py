@@ -25,3 +25,5 @@ def test_dashboard_page_renders() -> None:
     assert response.status_code == 200
     assert "Stewy OS" in response.text
     assert "RECENT ACTIVITY" in response.text
+    assert "HOME" in response.text
+    assert "Home Assistant" in response.text

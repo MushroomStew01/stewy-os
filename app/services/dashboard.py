@@ -5,7 +5,13 @@ import time
 from typing import Any
 
 from ..config import Settings
-from ..integrations import CalorieIntegration, LexusIntegration, MovieIntegration, SystemIntegration
+from ..integrations import (
+    CalorieIntegration,
+    HomeAssistantIntegration,
+    LexusIntegration,
+    MovieIntegration,
+    SystemIntegration,
+)
 from ..integrations.base import Integration, IntegrationSnapshot
 from .activity import recent_activity, reconcile_activity
 
@@ -24,6 +30,15 @@ class DashboardService:
                 settings.movie_status_url,
                 settings.movie_timeout_seconds,
                 settings.movie_stale_hours,
+            ),
+            HomeAssistantIntegration(
+                settings.ha_base_url,
+                settings.ha_token,
+                settings.ha_timeout_seconds,
+                settings.ha_temperature_entities,
+                settings.ha_presence_entities,
+                settings.ha_selected_entities,
+                settings.ha_max_temperature_sensors,
             ),
             SystemIntegration(),
         ]

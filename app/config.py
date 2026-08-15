@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     movie_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
     movie_stale_hours: int = Field(default=36, ge=1, le=168)
 
+    ha_base_url: str = ""
+    ha_token: str = ""
+    ha_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    ha_temperature_entities: str = ""
+    ha_presence_entities: str = ""
+    ha_selected_entities: str = ""
+    ha_max_temperature_sensors: int = Field(default=6, ge=1, le=20)
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -103,3 +103,84 @@ async def test_movie_adapter_maps_priority_status() -> None:
     assert snapshot.metrics["theatres_found"] == 2
     assert snapshot.metrics["showtime_count"] == 2
     assert snapshot.metrics["state_id"] == "abc123"
+
+
+@pytest.mark.asyncio
+async def test_home_assistant_adapter_maps_presence_temperatures_and_selected() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers.get("Authorization") == "Bearer ha-secret"
+        assert request.url.path == "/api/states"
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "entity_id": "person.andy",
+                    "state": "home",
+                    "attributes": {"friendly_name": "Andy"},
+                    "last_updated": "2026-08-15T23:00:00+00:00",
+                },
+                {
+                    "entity_id": "sensor.living_room_temperature",
+                    "state": "22.4",
+                    "attributes": {
+                        "friendly_name": "Living Room Temperature",
+                        "device_class": "temperature",
+                        "unit_of_measurement": "°C",
+                    },
+                    "last_updated": "2026-08-15T23:01:00+00:00",
+                },
+                {
+                    "entity_id": "sensor.cpu_temperature",
+                    "state": "44.1",
+                    "attributes": {
+                        "friendly_name": "CPU Temperature",
+                        "device_class": "temperature",
+                        "unit_of_measurement": "°C",
+                    },
+                },
+                {
+                    "entity_id": "binary_sensor.front_door",
+                    "state": "off",
+                    "attributes": {"friendly_name": "Front Door"},
+                },
+            ],
+        )
+
+    from app.integrations.home_assistant import HomeAssistantIntegration
+
+    integration = HomeAssistantIntegration(
+        "http://ha.test",
+        "ha-secret",
+        2,
+        selected_entities="binary_sensor.front_door",
+        transport=httpx.MockTransport(handler),
+    )
+    snapshot = await integration.snapshot()
+    assert snapshot.healthy is True
+    assert snapshot.status == "online"
+    assert snapshot.metrics["people_home"] == 1
+    assert snapshot.metrics["people_total"] == 1
+    assert snapshot.metrics["temperature_count"] == 1
+    assert snapshot.metrics["temperatures"][0]["name"] == "Living Room Temperature"
+    assert snapshot.metrics["selected"][0]["state"] == "off"
+    assert snapshot.metrics["entity_count"] == 4
+
+
+@pytest.mark.asyncio
+async def test_home_assistant_adapter_marks_missing_configured_entity_degraded() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[])
+
+    from app.integrations.home_assistant import HomeAssistantIntegration
+
+    integration = HomeAssistantIntegration(
+        "http://ha.test",
+        "ha-secret",
+        2,
+        temperature_entities="sensor.missing_temperature",
+        transport=httpx.MockTransport(handler),
+    )
+    snapshot = await integration.snapshot()
+    assert snapshot.healthy is True
+    assert snapshot.status == "degraded"
+    assert snapshot.metrics["missing_entities"] == ["sensor.missing_temperature"]
