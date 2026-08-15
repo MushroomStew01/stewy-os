@@ -40,6 +40,12 @@ function renderCard(name, data) {
     setMetric(card, "memory_percent", m.memory_percent, "%");
     setMetric(card, "disk_percent", m.disk_percent, "%");
     setMetric(card, "temperature_c", m.temperature_c, "°C");
+  } else if (name === "movies") {
+    setMetric(card, "ticket_available", m.ticket_available === true ? "YES" : m.ticket_available === false ? "NO" : null);
+    const theatreValue = m.monitored_theatres ? `${m.theatres_found || 0}/${m.monitored_theatres}` : m.theatres_found;
+    setMetric(card, "theatres_found", theatreValue);
+    setMetric(card, "showtime_count", m.showtime_count);
+    setMetric(card, "format_count", m.format_count);
   }
 }
 
@@ -53,13 +59,14 @@ function renderActivity(items) {
   const root = document.getElementById("activity-list");
   if (!root) return;
   if (!items || items.length === 0) {
-    root.innerHTML = '<p class="muted">No activity events yet. Integrations will begin populating this feed in the next milestone.</p>';
+    root.innerHTML = '<p class="muted">No activity events yet. New meals, movie changes, and integration health changes will appear here.</p>';
     return;
   }
   root.innerHTML = items.map(item => {
     const when = new Date(item.occurred_at);
     const time = Number.isNaN(when.getTime()) ? "—" : when.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
-    return `<div class="activity-row"><time>${escapeHtml(time)}</time><span class="source">${escapeHtml(item.source)}</span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail || "")}</p></div></div>`;
+    const source = ({movies: "Movies", calories: "Nutrition", lexus: "Lexus", system: "HomeLab"})[item.source] || item.source;
+    return `<div class="activity-row"><time>${escapeHtml(time)}</time><span class="source">${escapeHtml(source)}</span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail || "")}</p></div></div>`;
   }).join("");
 }
 

@@ -5,9 +5,9 @@ import time
 from typing import Any
 
 from ..config import Settings
-from ..integrations import CalorieIntegration, LexusIntegration, SystemIntegration
+from ..integrations import CalorieIntegration, LexusIntegration, MovieIntegration, SystemIntegration
 from ..integrations.base import Integration, IntegrationSnapshot
-from .activity import recent_activity
+from .activity import recent_activity, reconcile_activity
 
 
 class DashboardService:
@@ -19,6 +19,11 @@ class DashboardService:
                 settings.calorie_base_url,
                 settings.calorie_api_key,
                 settings.calorie_timeout_seconds,
+            ),
+            MovieIntegration(
+                settings.movie_status_url,
+                settings.movie_timeout_seconds,
+                settings.movie_stale_hours,
             ),
             SystemIntegration(),
         ]
@@ -58,6 +63,7 @@ class DashboardService:
                 return self._cache
 
             snapshots = await self._fetch_integrations()
+            reconcile_activity(snapshots)
             payload = {
                 "app": self.settings.app_name,
                 "refresh_seconds": self.settings.app_refresh_seconds,

@@ -19,3 +19,15 @@ class ActivityEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
     )
+
+
+class IntegrationState(Base):
+    __tablename__ = "integration_states"
+
+    source: Mapped[str] = mapped_column(String(40), primary_key=True)
+    payload: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )

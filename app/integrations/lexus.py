@@ -1,9 +1,28 @@
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 from .base import IntegrationSnapshot
 from .http_service import HTTPIntegration
+
+
+def _vehicle_label(status: dict[str, Any]) -> str:
+    vehicle = status.get("vehicle")
+    if isinstance(vehicle, dict):
+        display = vehicle.get("display_name")
+        if display:
+            return str(display)
+        year = vehicle.get("year")
+        make = vehicle.get("make")
+        model = vehicle.get("model")
+        label = " ".join(str(value) for value in (year, make, model) if value)
+        if label:
+            return label
+    elif vehicle:
+        return str(vehicle)
+    return str(status.get("display_name") or "Vehicle connected")
 
 
 class LexusIntegration(HTTPIntegration):
@@ -33,7 +52,7 @@ class LexusIntegration(HTTPIntegration):
                 "range_km": status.get("range_km"),
                 "odometer_km": status.get("odometer_km"),
             },
-            detail=str(status.get("vehicle") or status.get("display_name") or "Vehicle connected"),
+            detail=_vehicle_label(status),
             link=self.base_url,
             observed_at=str(status.get("observed_at")) if status.get("observed_at") else None,
         )
