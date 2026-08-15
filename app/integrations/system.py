@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import psutil
@@ -37,8 +37,8 @@ class SystemIntegration(Integration):
     async def snapshot(self) -> IntegrationSnapshot:
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
-        boot = datetime.fromtimestamp(psutil.boot_time(), tz=timezone.utc)
-        uptime_seconds = max(0, int((datetime.now(timezone.utc) - boot).total_seconds()))
+        boot = datetime.fromtimestamp(psutil.boot_time(), tz=UTC)
+        uptime_seconds = max(0, int((datetime.now(UTC) - boot).total_seconds()))
         load = os.getloadavg()[0] if hasattr(os, "getloadavg") else None
         return IntegrationSnapshot(
             name=self.name,
@@ -55,5 +55,5 @@ class SystemIntegration(Integration):
                 "load_1m": round(float(load), 2) if load is not None else None,
             },
             detail="Stewy OS host",
-            observed_at=datetime.now(timezone.utc).isoformat(),
+            observed_at=datetime.now(UTC).isoformat(),
         )
