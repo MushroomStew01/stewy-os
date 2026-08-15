@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -17,7 +17,7 @@ class IntegrationSnapshot:
     detail: str = ""
     link: str | None = None
     observed_at: str | None = None
-    fetched_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    fetched_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def as_dict(self) -> dict[str, Any]:
         return {
