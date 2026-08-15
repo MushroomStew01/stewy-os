@@ -3,16 +3,18 @@
 Stewy OS is a self-hosted personal command center that sits above independent
 services instead of merging their business logic and databases into one monolith.
 
-## v0.3
+## v0.3.1
 
 v0.3 connects Home Assistant directly to the command center while keeping the
-integration read-only.
+integration read-only. v0.3.1 tightens presence discovery so vehicle trackers and
+unusable `unknown` / `unavailable` states do not pollute the Home card.
 
 - Lexus Personal Hub status via `/healthz` and `/api/status`.
 - ChatGPT Calorie Bridge daily summary via `/health` and `/api/summary`.
 - Movie Ticket Monitor status through its public `status.json` feed.
 - Home Assistant service health, presence, room temperatures, and explicitly selected entities.
-- Automatic `person.*` presence discovery and sensible temperature-sensor discovery when entity lists are blank.
+- Presence discovery prefers usable `person.*` entities, then falls back to usable non-vehicle `device_tracker.*` entities.
+- Lexus/Toyota/vehicle location trackers and `unknown` / `unavailable` presence are hidden from the Home card.
 - Presence-change activity events such as arrivals and departures.
 - Raspberry Pi / HomeLab CPU, RAM, disk, temperature, load, and uptime.
 - Persistent Recent Activity with SQLite-backed integration cursors.
@@ -121,11 +123,14 @@ HA_SELECTED_ENTITIES=binary_sensor.front_door,sensor.indoor_humidity
 HA_MAX_TEMPERATURE_SENSORS=6
 ```
 
-If `HA_PRESENCE_ENTITIES` is blank, Stewy OS discovers `person.*` entities. If
-`HA_TEMPERATURE_ENTITIES` is blank, it discovers suitable Home Assistant sensors
-with `device_class=temperature` and shows up to `HA_MAX_TEMPERATURE_SENSORS`.
-Configured entity IDs that disappear are surfaced as a degraded Home card without
-marking the Home Assistant API itself offline.
+If `HA_PRESENCE_ENTITIES` is blank, Stewy OS first uses `person.*` entities whose
+state is `home` or `not_home`. If no usable person entity exists, it falls back to
+non-vehicle `device_tracker.*` entities with those same states. Lexus/Toyota and
+vehicle location trackers are excluded, and `unknown` / `unavailable` presence is
+not displayed. If `HA_TEMPERATURE_ENTITIES` is blank, Stewy OS discovers suitable
+Home Assistant sensors with `device_class=temperature` and shows up to
+`HA_MAX_TEMPERATURE_SENSORS`. Configured entity IDs that disappear are surfaced as
+a degraded Home card without marking the Home Assistant API itself offline.
 
 ### Dashboard protection
 

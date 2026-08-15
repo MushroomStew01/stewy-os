@@ -23,6 +23,18 @@ _IGNORED_TEMPERATURE_TERMS = (
     "oven",
 )
 
+_IGNORED_PRESENCE_TERMS = (
+    "lexus",
+    "toyota",
+    "vehicle",
+    "current location",
+    "current_location",
+    "parked location",
+    "parked_location",
+)
+
+_VALID_PRESENCE_STATES = {"home", "not_home"}
+
 
 def _split_entities(value: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in value.split(",") if part.strip())
@@ -70,6 +82,15 @@ def _temperature_record(state: dict[str, Any]) -> dict[str, Any] | None:
         "value": round(value, 1),
         "unit": _unit(state),
     }
+
+
+def _presence_state_is_usable(state: dict[str, Any]) -> bool:
+    return str(state.get("state") or "").strip().casefold() in _VALID_PRESENCE_STATES
+
+
+def _is_vehicle_presence(state: dict[str, Any]) -> bool:
+    searchable = f"{state.get('entity_id', '')} {_friendly_name(state)}".casefold()
+    return any(term in searchable for term in _IGNORED_PRESENCE_TERMS)
 
 
 class HomeAssistantIntegration(Integration):
@@ -153,13 +174,34 @@ class HomeAssistantIntegration(Integration):
         missing: list[str],
     ) -> list[dict[str, Any]]:
         if self.presence_entities:
-            return self._configured_records(index, self.presence_entities, missing)
+            records: list[dict[str, Any]] = []
+            for entity_id in self.presence_entities:
+                state = index.get(entity_id)
+                if state is None:
+                    missing.append(entity_id)
+                    continue
+                if _presence_state_is_usable(state):
+                    records.append(_generic_record(state))
+            return records
+
         people = [
             _generic_record(state)
             for state in states
             if str(state.get("entity_id") or "").startswith("person.")
+            and _presence_state_is_usable(state)
+            and not _is_vehicle_presence(state)
         ]
-        return sorted(people, key=lambda item: str(item["name"]).casefold())[:8]
+        if people:
+            return sorted(people, key=lambda item: str(item["name"]).casefold())[:8]
+
+        trackers = [
+            _generic_record(state)
+            for state in states
+            if str(state.get("entity_id") or "").startswith("device_tracker.")
+            and _presence_state_is_usable(state)
+            and not _is_vehicle_presence(state)
+        ]
+        return sorted(trackers, key=lambda item: str(item["name"]).casefold())[:8]
 
     def _temperature_records(
         self,
