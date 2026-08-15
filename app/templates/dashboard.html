@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="shell">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">PERSONAL COMMAND CENTER</p>
+      <h1>Stewy OS</h1>
+      <p id="greeting" class="muted">Your systems, one place.</p>
+    </div>
+    <div class="live-pill"><span class="dot"></span> LIVE</div>
+  </header>
+
+  <section class="grid" id="integration-grid">
+    <article class="card" data-card="lexus">
+      <div class="card-head"><span class="icon">🚗</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">LEXUS</p>
+      <h2 data-field="headline">Vehicle</h2>
+      <div class="metrics four">
+        <div><span>Ready</span><strong data-metric="ready">—</strong></div>
+        <div><span>Fuel</span><strong data-metric="fuel_percent">—</strong></div>
+        <div><span>Range</span><strong data-metric="range_km">—</strong></div>
+        <div><span>Odometer</span><strong data-metric="odometer_km">—</strong></div>
+      </div>
+    </article>
+
+    <article class="card" data-card="calories">
+      <div class="card-head"><span class="icon">🍽️</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">NUTRITION</p>
+      <h2><span data-metric="calories">—</span> <small>/ <span data-metric="calorie_goal">—</span> kcal</small></h2>
+      <div class="progress"><div data-progress></div></div>
+      <div class="metrics three">
+        <div><span>Remaining</span><strong data-metric="calories_remaining">—</strong></div>
+        <div><span>Protein</span><strong data-metric="protein_g">—</strong></div>
+        <div><span>Meals</span><strong data-metric="meal_count">—</strong></div>
+      </div>
+    </article>
+
+    <article class="card" data-card="system">
+      <div class="card-head"><span class="icon">🖥️</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">HOMELAB</p>
+      <h2 data-field="headline">Stewy OS Host</h2>
+      <div class="metrics four">
+        <div><span>CPU</span><strong data-metric="cpu_percent">—</strong></div>
+        <div><span>RAM</span><strong data-metric="memory_percent">—</strong></div>
+        <div><span>Disk</span><strong data-metric="disk_percent">—</strong></div>
+        <div><span>Temp</span><strong data-metric="temperature_c">—</strong></div>
+      </div>
+    </article>
+
+    <article class="card planned">
+      <div class="card-head"><span class="icon">🎬</span><span class="status neutral">PLANNED</span></div>
+      <p class="eyebrow">MOVIES</p>
+      <h2>Movie Monitor</h2>
+      <p class="muted">The existing GitHub Actions monitor will join Stewy OS through a small status feed in v0.2.</p>
+    </article>
+  </section>
+
+  <section class="activity card wide">
+    <div class="section-head">
+      <div><p class="eyebrow">RECENT ACTIVITY</p><h2>What changed</h2></div>
+      <span class="muted" id="last-updated">Loading…</span>
+    </div>
+    <div id="activity-list" class="activity-list"><p class="muted">No activity events yet.</p></div>
+  </section>
+</main>
+<script id="initial-data" type="application/json">{{ payload | tojson }}</script>
+{% endblock %}
