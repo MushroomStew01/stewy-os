@@ -1,6 +1,24 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.integrations.system import SystemIntegration
+from app.main import app, dashboard_service
+
+
+@pytest.fixture(autouse=True)
+def isolate_dashboard_integrations():
+    original = dashboard_service.integrations
+    original_cache = dashboard_service._cache
+    original_cache_at = dashboard_service._cache_at
+    dashboard_service.integrations = [SystemIntegration()]
+    dashboard_service._cache = None
+    dashboard_service._cache_at = 0.0
+    try:
+        yield
+    finally:
+        dashboard_service.integrations = original
+        dashboard_service._cache = original_cache
+        dashboard_service._cache_at = original_cache_at
 
 
 def test_healthz() -> None:
@@ -27,3 +45,5 @@ def test_dashboard_page_renders() -> None:
     assert "RECENT ACTIVITY" in response.text
     assert "HOME" in response.text
     assert "Home Assistant" in response.text
+    assert "GitHub Actions" in response.text
+    assert "Docker" in response.text

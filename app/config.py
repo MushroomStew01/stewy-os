@@ -41,6 +41,18 @@ class Settings(BaseSettings):
     ha_selected_entities: str = ""
     ha_max_temperature_sensors: int = Field(default=6, ge=1, le=20)
 
+    github_owner: str = "MushroomStew01"
+    github_repositories: str = (
+        "stewy-os,lexus-personal-hub,chatgpt-calorie-bridge,"
+        "movie-ticket-discord-monitor"
+    )
+    github_token: str = ""
+    github_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    github_poll_seconds: int = Field(default=600, ge=60, le=3600)
+
+    docker_socket_path: str = "/var/run/docker.sock"
+    docker_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+
 
 @lru_cache
 def get_settings() -> Settings:

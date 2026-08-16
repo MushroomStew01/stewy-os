@@ -7,6 +7,8 @@ from typing import Any
 from ..config import Settings
 from ..integrations import (
     CalorieIntegration,
+    DockerIntegration,
+    GitHubIntegration,
     HomeAssistantIntegration,
     LexusIntegration,
     MovieIntegration,
@@ -41,6 +43,17 @@ class DashboardService:
                 settings.ha_max_temperature_sensors,
             ),
             SystemIntegration(),
+            GitHubIntegration(
+                settings.github_owner,
+                settings.github_repositories,
+                settings.github_token,
+                settings.github_timeout_seconds,
+                settings.github_poll_seconds,
+            ),
+            DockerIntegration(
+                settings.docker_socket_path,
+                settings.docker_timeout_seconds,
+            ),
         ]
         self._cache: dict[str, Any] | None = None
         self._cache_at = 0.0

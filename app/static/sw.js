@@ -1,4 +1,4 @@
-const CACHE = "stewy-os-v0.3.1";
+const CACHE = "stewy-os-v0.4";
 const SHELL = ["/static/app.css", "/static/app.js", "/static/manifest.webmanifest"];
 
 self.addEventListener("install", event => {
