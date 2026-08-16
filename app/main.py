@@ -47,6 +47,13 @@ def api_activity(limit: Annotated[int, Query(ge=1, le=100)] = 20) -> list[dict[s
     return recent_activity(limit=limit)
 
 
+@app.get("/api/notifications", dependencies=[Depends(require_access)])
+def api_notifications(
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[dict[str, object]]:
+    return dashboard_service.notifications.recent_deliveries(limit=limit)
+
+
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_access)])
 async def dashboard(request: Request) -> HTMLResponse:
     payload = await dashboard_service.get_dashboard()

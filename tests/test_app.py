@@ -28,13 +28,21 @@ def test_healthz() -> None:
     assert response.json()["status"] == "ok"
 
 
-def test_dashboard_api_contains_system() -> None:
+def test_dashboard_api_contains_system_and_notifications() -> None:
     with TestClient(app) as client:
         response = client.get("/api/dashboard?force=true")
     assert response.status_code == 200
     payload = response.json()
     assert "system" in payload["integrations"]
     assert payload["integrations"]["system"]["healthy"] is True
+    assert payload["notifications"]["status"] == "disabled"
+
+
+def test_notifications_api_returns_history_list() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/notifications")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
 
 def test_dashboard_page_renders() -> None:
@@ -47,3 +55,4 @@ def test_dashboard_page_renders() -> None:
     assert "Home Assistant" in response.text
     assert "GitHub Actions" in response.text
     assert "Docker" in response.text
+    assert "NOTIFICATIONS" in response.text

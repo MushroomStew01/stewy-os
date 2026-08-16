@@ -185,6 +185,24 @@ function renderCard(name, data) {
     setMetric(card, "stopped_count", m.stopped_count);
     setMetric(card, "engine_version", m.engine_version || "—");
     renderDockerContainers(card.querySelector("[data-docker-containers]"), m.containers);
+  } else if (name === "notifications") {
+    setMetric(card, "sent_count", m.sent_count);
+    setMetric(card, "failed_count", m.failed_count);
+    setMetric(card, "suppressed_count", m.suppressed_count);
+    setMetric(card, "min_severity", String(m.min_severity || "warning").toUpperCase());
+    setMetric(card, "quiet_hours", m.quiet_hours);
+    const note = card.querySelector("[data-notification-note]");
+    if (note) {
+      if (!data.enabled) {
+        note.textContent = "Central delivery is disabled. Existing source alerts are unchanged.";
+      } else if (!data.configured) {
+        note.textContent = "Set DISCORD_WEBHOOK_URL to activate central delivery.";
+      } else if (m.last_status) {
+        note.textContent = `Last delivery state: ${String(m.last_status).replaceAll("_", " ")}.`;
+      } else {
+        note.textContent = "Ready. New qualifying activity will be delivered to Discord.";
+      }
+    }
   }
 }
 
@@ -215,6 +233,7 @@ function renderActivity(items) {
 
 function render(payload) {
   Object.entries(payload.integrations || {}).forEach(([name, data]) => renderCard(name, data));
+  renderCard("notifications", payload.notifications);
   renderActivity(payload.activity || []);
   const stamp = document.getElementById("last-updated");
   if (stamp) {

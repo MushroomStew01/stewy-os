@@ -53,6 +53,19 @@ class Settings(BaseSettings):
     docker_socket_path: str = "/var/run/docker.sock"
     docker_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
 
+    notifications_enabled: bool = False
+    discord_webhook_url: str = ""
+    discord_user_id: str = ""
+    notification_discord_username: str = "Stewy OS"
+    notification_min_severity: str = "warning"
+    notification_quiet_start: str = "23:00"
+    notification_quiet_end: str = "07:00"
+    notification_dedupe_minutes: int = Field(default=60, ge=0, le=1440)
+    notification_retry_minutes: int = Field(default=5, ge=1, le=120)
+    notification_max_attempts: int = Field(default=3, ge=1, le=10)
+    notification_event_max_age_minutes: int = Field(default=10, ge=1, le=1440)
+    notification_timeout_seconds: float = Field(default=5.0, gt=0, le=30)
+
 
 @lru_cache
 def get_settings() -> Settings:

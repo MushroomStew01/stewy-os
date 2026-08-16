@@ -115,6 +115,22 @@
         <span class="muted">Loading containers…</span>
       </div>
     </article>
+
+    <article class="card home-card" data-card="notifications">
+      <div class="card-head"><span class="icon">🔔</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">NOTIFICATIONS</p>
+      <h2 data-field="headline">Discord notifications</h2>
+      <p class="muted compact-meta">Quiet hours <strong data-metric="quiet_hours">—</strong></p>
+      <div class="metrics four">
+        <div><span>Sent</span><strong data-metric="sent_count">—</strong></div>
+        <div><span>Failed</span><strong data-metric="failed_count">—</strong></div>
+        <div><span>Suppressed</span><strong data-metric="suppressed_count">—</strong></div>
+        <div><span>Minimum</span><strong data-metric="min_severity">—</strong></div>
+      </div>
+      <p class="muted notification-note" data-notification-note>
+        Central notifications are disabled until configured in .env.
+      </p>
+    </article>
   </section>
 
   <section class="activity card wide">

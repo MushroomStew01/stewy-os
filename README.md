@@ -3,9 +3,10 @@
 Stewy OS is a self-hosted personal command center that sits above independent
 services instead of merging their business logic and databases into one monolith.
 
-## v0.4
+## v0.5
 
-v0.4 adds the Developer / HomeLab layer.
+v0.5 adds a durable central notification layer on top of the normalized activity
+feed introduced in earlier milestones.
 
 - Lexus Personal Hub status via `/healthz` and `/api/status`.
 - ChatGPT Calorie Bridge daily summary via `/health` and `/api/summary`.
@@ -16,7 +17,12 @@ v0.4 adds the Developer / HomeLab layer.
 - Docker Engine/container status, including running, stopped, and unhealthy containers.
 - Persistent Recent Activity for meals, movies, presence, GitHub failures/recovery,
   Docker transitions, integration health, Lexus ready state, and storage warnings.
+- Central Discord notification delivery with severity, deduplication, quiet hours,
+  retry tracking, optional direct mentions, and durable delivery history.
 - Docker named-volume persistence and responsive PWA dashboard on port `8020`.
+
+Central notifications are deliberately disabled by default. Upgrading to v0.5
+cannot create duplicate Discord alerts until `NOTIFICATIONS_ENABLED=true` is set.
 
 ## Architecture
 
@@ -38,14 +44,21 @@ v0.4 adds the Developer / HomeLab layer.
                         Raspberry Pi host
                        psutil + Docker API
                                |
-                               v
-                         GitHub REST API
-                        Actions run status
+                  +------------+------------+
+                  |                         |
+                  v                         v
+            GitHub REST API          Activity timeline
+            Actions status                   |
+                                             v
+                                    Notification engine
+                                             |
+                                             v
+                                      Discord webhook
 ```
 
-Stewy OS owns presentation, integration health, short-lived caching, and the
-normalized activity timeline. Source services continue to own their data and
-domain logic.
+Stewy OS owns presentation, integration health, short-lived caching, the
+normalized activity timeline, and notification orchestration. Source services
+continue to own their data and domain logic.
 
 ## Raspberry Pi / Docker
 
@@ -61,7 +74,9 @@ Stewy OS is exposed on:
 http://<PI-IP>:8020
 ```
 
-The Compose deployment uses the `stewy_data` named volume for SQLite.
+The Compose deployment uses the `stewy_data` named volume for SQLite. v0.5 adds a
+`notification_deliveries` table automatically through SQLAlchemy `create_all`;
+no manual migration command is required.
 
 ### Docker status access
 
@@ -144,12 +159,8 @@ GITHUB_POLL_SECONDS=600
 
 A token is optional for public repositories. Without one, Stewy OS intentionally
 caches GitHub status for 10 minutes. Four repositories at that interval use about
-24 unauthenticated API requests per hour, below GitHub's standard unauthenticated
-REST rate limit. Set `GITHUB_TOKEN` to a fine-grained read-only token if you later
-add private repositories or want more headroom.
-
-The GitHub card shows each repository's latest Actions run and creates activity
-events when a repository changes into a failing state or recovers to green.
+24 unauthenticated API requests per hour. Set `GITHUB_TOKEN` to a fine-grained
+read-only token if you later add private repositories or want more headroom.
 
 ### Docker
 
@@ -161,6 +172,43 @@ DOCKER_GID=988
 
 `DOCKER_GID` is consumed by Docker Compose. `DOCKER_SOCKET_PATH` is consumed by
 Stewy OS itself.
+
+### Notifications
+
+Central notifications are opt-in:
+
+```env
+NOTIFICATIONS_ENABLED=false
+DISCORD_WEBHOOK_URL=
+DISCORD_USER_ID=
+NOTIFICATION_DISCORD_USERNAME=Stewy OS
+NOTIFICATION_MIN_SEVERITY=warning
+NOTIFICATION_QUIET_START=23:00
+NOTIFICATION_QUIET_END=07:00
+NOTIFICATION_DEDUPE_MINUTES=60
+NOTIFICATION_RETRY_MINUTES=5
+NOTIFICATION_MAX_ATTEMPTS=3
+NOTIFICATION_EVENT_MAX_AGE_MINUTES=10
+NOTIFICATION_TIMEOUT_SECONDS=5
+```
+
+Set `DISCORD_WEBHOOK_URL` to a Discord webhook URL and then set
+`NOTIFICATIONS_ENABLED=true` to activate central delivery. `DISCORD_USER_ID` is
+optional; when configured, warning and critical notifications mention that user.
+
+Severity defaults are intentionally conservative:
+
+- **Critical:** movie availability changes, stopped/unhealthy Docker containers,
+  and integration outages. Critical notifications bypass quiet hours.
+- **Warning:** GitHub Actions failures, storage warnings, and Lexus attention state.
+- **Info:** recoveries, presence changes, meals, and routine state changes.
+
+`NOTIFICATION_MIN_SEVERITY=warning` avoids meal/presence notification noise by
+default. Change it to `info` if you want every qualifying activity event delivered.
+
+Delivery state is persisted in SQLite. Duplicate identical alerts inside the
+configured deduplication window are suppressed, failed HTTP deliveries are retried,
+and quiet-hour suppression is recorded instead of disappearing silently.
 
 ### Dashboard protection
 
@@ -175,9 +223,10 @@ STEWY_PASSWORD=replace-with-a-long-random-secret
 ## API
 
 - `GET /healthz` — Stewy OS process health and version.
-- `GET /api/dashboard` — combined integration snapshot and recent activity.
+- `GET /api/dashboard` — integrations, notification summary, and recent activity.
 - `GET /api/dashboard?force=true` — bypass the short dashboard cache.
 - `GET /api/activity` — persistent normalized activity events.
+- `GET /api/notifications` — persistent notification delivery history.
 
 The GitHub integration maintains its own longer poll cache, so `force=true` does
 not burn GitHub API quota.
@@ -191,11 +240,6 @@ pytest -q
 ```
 
 ## Roadmap
-
-### v0.5 — Notifications
-
-- One notification service across Lexus, movies, HomeLab, GitHub, and future sources.
-- Deduplication, priorities, quiet hours, and Discord delivery.
 
 ### v0.6 — Personal intelligence
 

@@ -16,6 +16,7 @@ from ..integrations import (
 )
 from ..integrations.base import Integration, IntegrationSnapshot
 from .activity import recent_activity, reconcile_activity
+from .notifications import NotificationService
 
 
 class DashboardService:
@@ -55,6 +56,7 @@ class DashboardService:
                 settings.docker_timeout_seconds,
             ),
         ]
+        self.notifications = NotificationService(settings)
         self._cache: dict[str, Any] | None = None
         self._cache_at = 0.0
         self._lock = asyncio.Lock()
@@ -92,10 +94,16 @@ class DashboardService:
 
             snapshots = await self._fetch_integrations()
             reconcile_activity(snapshots)
+            try:
+                await self.notifications.process_pending()
+            except Exception:
+                # Notification delivery must never take down the command center.
+                pass
             payload = {
                 "app": self.settings.app_name,
                 "refresh_seconds": self.settings.app_refresh_seconds,
                 "integrations": {snapshot.name: snapshot.as_dict() for snapshot in snapshots},
+                "notifications": self.notifications.summary(),
                 "activity": recent_activity(limit=12),
             }
             self._cache = payload
