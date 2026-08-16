@@ -10,7 +10,15 @@ from ..database import session_scope
 from ..integrations.base import IntegrationSnapshot
 from ..models import ActivityEvent, IntegrationState
 
-_TRACKED_SOURCES = {"lexus", "calories", "movies", "home_assistant", "system"}
+_TRACKED_SOURCES = {
+    "lexus",
+    "calories",
+    "movies",
+    "home_assistant",
+    "system",
+    "github",
+    "docker",
+}
 
 
 def _list_metric(metrics: dict[str, Any], key: str) -> list[str]:
@@ -18,6 +26,13 @@ def _list_metric(metrics: dict[str, Any], key: str) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item).strip()]
+
+
+def _record_list(metrics: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    value = metrics.get(key)
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _snapshot_state(snapshot: IntegrationSnapshot) -> dict[str, Any]:
@@ -45,17 +60,22 @@ def _snapshot_state(snapshot: IntegrationSnapshot) -> dict[str, Any]:
     elif snapshot.name == "lexus":
         common["metrics"] = {"ready": metrics.get("ready")}
     elif snapshot.name == "home_assistant":
-        presence = metrics.get("presence")
-        common["metrics"] = {
-            "presence": presence if isinstance(presence, list) else [],
-        }
+        common["metrics"] = {"presence": _record_list(metrics, "presence")}
+    elif snapshot.name == "github":
+        common["metrics"] = {"repos": _record_list(metrics, "repos")}
+    elif snapshot.name == "docker":
+        common["metrics"] = {"containers": _record_list(metrics, "containers")}
+    elif snapshot.name == "system":
+        common["metrics"] = {"disk_percent": metrics.get("disk_percent")}
     else:
         common["metrics"] = {}
     return common
 
 
 def _health_events(
-    source: str, previous: dict[str, Any], current: dict[str, Any]
+    source: str,
+    previous: dict[str, Any],
+    current: dict[str, Any],
 ) -> list[tuple[str, str, str]]:
     old = bool(previous.get("healthy"))
     new = bool(current.get("healthy"))
@@ -67,11 +87,17 @@ def _health_events(
         "movies": "Movie Monitor",
         "home_assistant": "Home Assistant",
         "system": "HomeLab",
+        "github": "GitHub",
+        "docker": "Docker",
     }
     label = labels.get(source, source.title())
     if new:
         return [
-            ("integration_recovered", f"{label} recovered", "The integration is responding again.")
+            (
+                "integration_recovered",
+                f"{label} recovered",
+                "The integration is responding again.",
+            )
         ]
     return [
         (
@@ -83,7 +109,8 @@ def _health_events(
 
 
 def _calorie_events(
-    previous: dict[str, Any], current: dict[str, Any]
+    previous: dict[str, Any],
+    current: dict[str, Any],
 ) -> list[tuple[str, str, str]]:
     old_metrics = previous.get("metrics", {})
     new_metrics = current.get("metrics", {})
@@ -100,7 +127,10 @@ def _calorie_events(
     return [("meal_logged", "Meal logged", detail)]
 
 
-def _movie_events(previous: dict[str, Any], current: dict[str, Any]) -> list[tuple[str, str, str]]:
+def _movie_events(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> list[tuple[str, str, str]]:
     old = previous.get("metrics", {})
     new = current.get("metrics", {})
     title = str(new.get("title") or "Movie")
@@ -163,7 +193,8 @@ def _presence_map(value: Any) -> dict[str, tuple[str, str]]:
 
 
 def _home_assistant_events(
-    previous: dict[str, Any], current: dict[str, Any]
+    previous: dict[str, Any],
+    current: dict[str, Any],
 ) -> list[tuple[str, str, str]]:
     old_presence = _presence_map(previous.get("metrics", {}).get("presence"))
     new_presence = _presence_map(current.get("metrics", {}).get("presence"))
@@ -175,10 +206,16 @@ def _home_assistant_events(
             continue
         name = new_name or old_name
         if old_state != "home" and new_state == "home":
-            events.append(("presence_arrived", f"{name} arrived home", "Presence changed to home."))
+            events.append(
+                ("presence_arrived", f"{name} arrived home", "Presence changed to home.")
+            )
         elif old_state == "home" and new_state != "home":
             events.append(
-                ("presence_left", f"{name} left home", f"Presence changed to {new_state}.")
+                (
+                    "presence_left",
+                    f"{name} left home",
+                    f"Presence changed to {new_state}.",
+                )
             )
         else:
             events.append(
@@ -191,14 +228,155 @@ def _home_assistant_events(
     return events
 
 
-def _lexus_events(previous: dict[str, Any], current: dict[str, Any]) -> list[tuple[str, str, str]]:
+def _lexus_events(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> list[tuple[str, str, str]]:
     old_ready = previous.get("metrics", {}).get("ready")
     new_ready = current.get("metrics", {}).get("ready")
     if old_ready is None or new_ready is None or old_ready == new_ready:
         return []
     if bool(new_ready):
-        return [("vehicle_ready", "Lexus back to ready", "Vehicle status returned to ready.")]
-    return [("vehicle_attention", "Lexus needs attention", "Vehicle ready status changed to no.")]
+        return [
+            (
+                "vehicle_ready",
+                "Lexus back to ready",
+                "Vehicle status returned to ready.",
+            )
+        ]
+    return [
+        (
+            "vehicle_attention",
+            "Lexus needs attention",
+            "Vehicle ready status changed to no.",
+        )
+    ]
+
+
+def _records_by_key(
+    value: Any,
+    key: str,
+) -> dict[str, dict[str, Any]]:
+    if not isinstance(value, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        identity = str(item.get(key) or "").strip()
+        if identity:
+            result[identity] = item
+    return result
+
+
+def _github_events(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> list[tuple[str, str, str]]:
+    old_repos = _records_by_key(previous.get("metrics", {}).get("repos"), "repo")
+    new_repos = _records_by_key(current.get("metrics", {}).get("repos"), "repo")
+    events: list[tuple[str, str, str]] = []
+    for repo in sorted(set(old_repos) & set(new_repos)):
+        old_state = str(old_repos[repo].get("state") or "unknown")
+        new_state = str(new_repos[repo].get("state") or "unknown")
+        if old_state == new_state:
+            continue
+        short_name = str(new_repos[repo].get("name") or repo)
+        workflow = str(new_repos[repo].get("workflow") or "workflow")
+        if new_state == "failure":
+            events.append(
+                (
+                    "github_action_failed",
+                    f"{short_name} Actions failed",
+                    f"Latest {workflow} run is failing.",
+                )
+            )
+        elif old_state == "failure" and new_state == "success":
+            events.append(
+                (
+                    "github_action_recovered",
+                    f"{short_name} Actions recovered",
+                    f"Latest {workflow} run is green again.",
+                )
+            )
+    return events
+
+
+def _docker_events(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> list[tuple[str, str, str]]:
+    old_items = _records_by_key(previous.get("metrics", {}).get("containers"), "name")
+    new_items = _records_by_key(current.get("metrics", {}).get("containers"), "name")
+    events: list[tuple[str, str, str]] = []
+    for name in sorted(set(old_items) & set(new_items)):
+        old_state = str(old_items[name].get("state") or "unknown")
+        new_state = str(new_items[name].get("state") or "unknown")
+        old_health = str(old_items[name].get("health") or "")
+        new_health = str(new_items[name].get("health") or "")
+
+        if new_health == "unhealthy" and old_health != "unhealthy":
+            events.append(
+                (
+                    "container_unhealthy",
+                    f"{name} is unhealthy",
+                    "Docker health check changed to unhealthy.",
+                )
+            )
+            continue
+        if old_health == "unhealthy" and new_health != "unhealthy" and new_state == "running":
+            events.append(
+                (
+                    "container_recovered",
+                    f"{name} recovered",
+                    "Docker container health returned to normal.",
+                )
+            )
+            continue
+        if old_state == "running" and new_state != "running":
+            events.append(
+                (
+                    "container_stopped",
+                    f"{name} stopped",
+                    f"Docker container state changed to {new_state}.",
+                )
+            )
+        elif old_state != "running" and new_state == "running":
+            events.append(
+                (
+                    "container_started",
+                    f"{name} started",
+                    "Docker container is running again.",
+                )
+            )
+    return events
+
+
+def _system_events(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> list[tuple[str, str, str]]:
+    old_disk = previous.get("metrics", {}).get("disk_percent")
+    new_disk = current.get("metrics", {}).get("disk_percent")
+    if not isinstance(old_disk, (int, float)) or not isinstance(new_disk, (int, float)):
+        return []
+    if old_disk < 85 <= new_disk:
+        return [
+            (
+                "storage_warning",
+                "Pi storage is getting full",
+                f"Root filesystem usage reached {new_disk:g}%.",
+            )
+        ]
+    if old_disk >= 85 > new_disk:
+        return [
+            (
+                "storage_recovered",
+                "Pi storage recovered",
+                f"Root filesystem usage dropped to {new_disk:g}%.",
+            )
+        ]
+    return []
 
 
 def _events_for_transition(
@@ -215,6 +393,12 @@ def _events_for_transition(
         events.extend(_lexus_events(previous, current))
     elif source == "home_assistant":
         events.extend(_home_assistant_events(previous, current))
+    elif source == "github":
+        events.extend(_github_events(previous, current))
+    elif source == "docker":
+        events.extend(_docker_events(previous, current))
+    elif source == "system":
+        events.extend(_system_events(previous, current))
     return events
 
 
@@ -229,7 +413,11 @@ def reconcile_activity(snapshots: list[IntegrationSnapshot]) -> None:
             stored = session.get(IntegrationState, snapshot.name)
             if stored is None:
                 session.add(
-                    IntegrationState(source=snapshot.name, payload=serialized, updated_at=now)
+                    IntegrationState(
+                        source=snapshot.name,
+                        payload=serialized,
+                        updated_at=now,
+                    )
                 )
                 continue
             if stored.payload == serialized:
@@ -239,7 +427,9 @@ def reconcile_activity(snapshots: list[IntegrationSnapshot]) -> None:
             except json.JSONDecodeError:
                 previous = {}
             for event_type, title, detail in _events_for_transition(
-                snapshot.name, previous, current
+                snapshot.name,
+                previous,
+                current,
             ):
                 session.add(
                     ActivityEvent(

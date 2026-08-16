@@ -39,6 +39,7 @@
       <div class="card-head"><span class="icon">🖥️</span><span class="status" data-field="status">Loading</span></div>
       <p class="eyebrow">HOMELAB</p>
       <h2 data-field="headline">Stewy OS Host</h2>
+      <p class="muted compact-meta">Uptime <strong data-metric="uptime_seconds">—</strong></p>
       <div class="metrics four">
         <div><span>CPU</span><strong data-metric="cpu_percent">—</strong></div>
         <div><span>RAM</span><strong data-metric="memory_percent">—</strong></div>
@@ -82,6 +83,36 @@
           <p class="eyebrow">SELECTED ENTITIES</p>
           <div class="entity-list" data-home-selected><span class="muted">Add entities in .env when useful.</span></div>
         </section>
+      </div>
+    </article>
+
+    <article class="card" data-card="github">
+      <div class="card-head"><span class="icon">🐙</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">DEVELOPER</p>
+      <h2 data-field="headline">GitHub Actions</h2>
+      <div class="metrics four">
+        <div><span>Repos</span><strong data-metric="repo_count">—</strong></div>
+        <div><span>Green</span><strong data-metric="success_count">—</strong></div>
+        <div><span>Failing</span><strong data-metric="failing_count">—</strong></div>
+        <div><span>Running</span><strong data-metric="running_count">—</strong></div>
+      </div>
+      <div class="entity-list developer-list" data-github-repos>
+        <span class="muted">Loading repositories…</span>
+      </div>
+    </article>
+
+    <article class="card" data-card="docker">
+      <div class="card-head"><span class="icon">🐳</span><span class="status" data-field="status">Loading</span></div>
+      <p class="eyebrow">SERVICES</p>
+      <h2 data-field="headline">Docker</h2>
+      <div class="metrics four">
+        <div><span>Running</span><strong data-metric="running_count">—</strong></div>
+        <div><span>Unhealthy</span><strong data-metric="unhealthy_count">—</strong></div>
+        <div><span>Stopped</span><strong data-metric="stopped_count">—</strong></div>
+        <div><span>Engine</span><strong data-metric="engine_version">—</strong></div>
+      </div>
+      <div class="entity-list developer-list" data-docker-containers>
+        <span class="muted">Loading containers…</span>
       </div>
     </article>
   </section>

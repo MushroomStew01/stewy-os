@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stewy-os"
-version = "0.3.1"
+version = "0.4.0"
 description = "Self-hosted personal command center for Andy's services and homelab."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

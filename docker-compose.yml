@@ -7,8 +7,11 @@ services:
       - .env
     ports:
       - "8020:8000"
+    group_add:
+      - "${DOCKER_GID:-988}"
     volumes:
       - stewy_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
